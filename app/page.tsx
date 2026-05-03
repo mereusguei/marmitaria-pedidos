@@ -58,11 +58,27 @@ export default function Home() {
   }
 
   async function loadMenu() {
-    const res = await fetch("/api/menu");
-    const data = await res.json();
-    setMenu(data.items);
-    setSizes(data.sizes);
-  }
+  const res = await fetch("/api/menu");
+  const data = await res.json();
+
+  setMenu(data.items);
+  setSizes(data.sizes);
+
+  const activeSides = data.items
+    .filter((item: MenuItem) => item.category === "acompanhamento" && item.active)
+    .map((item: MenuItem) => item.name);
+
+  const firstActiveSalad = data.items.find(
+    (item: MenuItem) => item.category === "salada" && item.active
+  );
+
+  setSelectedSides(activeSides);
+
+  setForm((prev) => ({
+    ...prev,
+    salad: firstActiveSalad?.name || "",
+  }));
+}
 
   useEffect(() => {
     loadOrders();
@@ -98,6 +114,13 @@ export default function Home() {
       }));
     }
   }, [calculatedTotal]);
+
+  function toggleSalad(name: string) {
+  setForm((prev) => ({
+    ...prev,
+    salad: prev.salad === name ? "" : name,
+  }));
+  }
 
   function toggleSide(name: string) {
     setSelectedSides((prev) =>
@@ -138,22 +161,30 @@ export default function Home() {
 
     const order = await res.json();
 
-    setForm({
-      customer: "",
-      phone: "",
-      sizeName: "M",
-      meat1: "",
-      meat2: "",
-      salad: "",
-      total: "",
-      payment: "PIX",
-      address: "",
-      locationUrl: "",
-      notes: "",
-      manualItems: "",
-    });
+    const activeSides = menu
+  .filter((item) => item.category === "acompanhamento" && item.active)
+  .map((item) => item.name);
 
-    setSelectedSides([]);
+const firstActiveSalad = menu.find(
+  (item) => item.category === "salada" && item.active
+);
+
+setForm({
+  customer: "",
+  phone: "",
+  sizeName: "M",
+  meat1: "",
+  meat2: "",
+  salad: firstActiveSalad?.name || "",
+  total: "",
+  payment: "PIX",
+  address: "",
+  locationUrl: "",
+  notes: "",
+  manualItems: "",
+});
+
+setSelectedSides(activeSides);
 
     await loadOrders();
 
@@ -237,18 +268,6 @@ export default function Home() {
                   ))}
                 </select>
               )}
-
-              <select
-                value={form.salad}
-                onChange={(e) => setForm({ ...form, salad: e.target.value })}
-              >
-                <option value="">Selecione a salada</option>
-                {salads.map((item) => (
-                  <option key={item.id} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <h3 className="mt-5 mb-2 font-bold">Acompanhamentos</h3>
@@ -273,6 +292,41 @@ export default function Home() {
                 );
               })}
             </div>
+
+            <h3 className="mt-5 mb-2 font-bold">Salada</h3>
+
+<div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+  {salads.map((item) => {
+    const active = form.salad === item.name;
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => toggleSalad(item.name)}
+        className={`p-3 text-left text-sm font-semibold border ${
+          active
+            ? "bg-green-600 border-green-400 text-white"
+            : "bg-slate-800 border-slate-700 text-slate-200"
+        }`}
+      >
+        {item.name}
+      </button>
+    );
+  })}
+
+  <button
+    type="button"
+    onClick={() => setForm({ ...form, salad: "" })}
+    className={`p-3 text-left text-sm font-semibold border ${
+      form.salad === ""
+        ? "bg-red-700 border-red-400 text-white"
+        : "bg-slate-800 border-slate-700 text-slate-200"
+    }`}
+  >
+    Nenhuma salada
+  </button>
+</div>
 
             <h2 className="mt-6 mb-3 text-lg font-bold">Entrega e observações</h2>
 
