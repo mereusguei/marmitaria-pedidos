@@ -48,7 +48,6 @@ export default function Home() {
     address: "",
     locationUrl: "",
     notes: "",
-    manualItems: "",
   });
 
   async function loadOrders() {
@@ -58,27 +57,29 @@ export default function Home() {
   }
 
   async function loadMenu() {
-  const res = await fetch("/api/menu");
-  const data = await res.json();
+    const res = await fetch("/api/menu");
+    const data = await res.json();
 
-  setMenu(data.items);
-  setSizes(data.sizes);
+    setMenu(data.items);
+    setSizes(data.sizes);
 
-  const activeSides = data.items
-    .filter((item: MenuItem) => item.category === "acompanhamento" && item.active)
-    .map((item: MenuItem) => item.name);
+    const activeSides = data.items
+      .filter(
+        (item: MenuItem) => item.category === "acompanhamento" && item.active,
+      )
+      .map((item: MenuItem) => item.name);
 
-  const firstActiveSalad = data.items.find(
-    (item: MenuItem) => item.category === "salada" && item.active
-  );
+    const firstActiveSalad = data.items.find(
+      (item: MenuItem) => item.category === "salada" && item.active,
+    );
 
-  setSelectedSides(activeSides);
+    setSelectedSides(activeSides);
 
-  setForm((prev) => ({
-    ...prev,
-    salad: firstActiveSalad?.name || "",
-  }));
-}
+    setForm((prev) => ({
+      ...prev,
+      salad: firstActiveSalad?.name || "",
+    }));
+  }
 
   useEffect(() => {
     loadOrders();
@@ -86,8 +87,12 @@ export default function Home() {
   }, []);
 
   const meats = menu.filter((item) => item.category === "carne" && item.active);
-  const sides = menu.filter((item) => item.category === "acompanhamento" && item.active);
-  const salads = menu.filter((item) => item.category === "salada" && item.active);
+  const sides = menu.filter(
+    (item) => item.category === "acompanhamento" && item.active,
+  );
+  const salads = menu.filter(
+    (item) => item.category === "salada" && item.active,
+  );
 
   const selectedMeat = meats.find((item) => item.name === form.meat1);
   const selectedSize = sizes.find((size) => size.name === form.sizeName);
@@ -116,32 +121,32 @@ export default function Home() {
   }, [calculatedTotal]);
 
   function toggleSalad(name: string) {
-  setForm((prev) => ({
-    ...prev,
-    salad: prev.salad === name ? "" : name,
-  }));
+    setForm((prev) => ({
+      ...prev,
+      salad: prev.salad === name ? "" : name,
+    }));
   }
 
   function toggleSide(name: string) {
     setSelectedSides((prev) =>
       prev.includes(name)
         ? prev.filter((item) => item !== name)
-        : [...prev, name]
+        : [...prev, name],
     );
   }
 
   function buildItemsText() {
-    if (form.manualItems.trim()) {
-      return form.manualItems.trim();
-    }
-
     return [
       `Tamanho: ${form.sizeName}`,
       form.meat1 ? `Carne: ${form.meat1}` : "",
       form.meat2 ? `2ª Carne: ${form.meat2}` : "",
-      selectedSides.length ? `Acompanhamentos: ${selectedSides.join(", ")}` : "",
+      selectedSides.length
+        ? `Acompanhamentos: ${selectedSides.join(", ")}`
+        : "",
       form.salad ? `Salada: ${form.salad}` : "",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
 
   async function createOrder(e: React.FormEvent) {
@@ -153,7 +158,17 @@ export default function Home() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
+        customer: form.customer,
+        phone: form.phone,
+        sizeName: form.sizeName,
+        meat1: form.meat1,
+        meat2: form.meat2,
+        salad: form.salad,
+        total: form.total,
+        payment: form.payment,
+        address: form.address,
+        locationUrl: form.locationUrl,
+        notes: form.notes,
         items,
         sides: selectedSides.join(", "),
       }),
@@ -162,29 +177,28 @@ export default function Home() {
     const order = await res.json();
 
     const activeSides = menu
-  .filter((item) => item.category === "acompanhamento" && item.active)
-  .map((item) => item.name);
+      .filter((item) => item.category === "acompanhamento" && item.active)
+      .map((item) => item.name);
 
-const firstActiveSalad = menu.find(
-  (item) => item.category === "salada" && item.active
-);
+    const firstActiveSalad = menu.find(
+      (item) => item.category === "salada" && item.active,
+    );
 
-setForm({
-  customer: "",
-  phone: "",
-  sizeName: "M",
-  meat1: "",
-  meat2: "",
-  salad: firstActiveSalad?.name || "",
-  total: "",
-  payment: "PIX",
-  address: "",
-  locationUrl: "",
-  notes: "",
-  manualItems: "",
-});
+    setForm({
+      customer: "",
+      phone: "",
+      sizeName: "M",
+      meat1: "",
+      meat2: "",
+      salad: firstActiveSalad?.name || "",
+      total: "",
+      payment: "PIX",
+      address: "",
+      locationUrl: "",
+      notes: "",
+    });
 
-setSelectedSides(activeSides);
+    setSelectedSides(activeSides);
 
     await loadOrders();
 
@@ -199,7 +213,9 @@ setSelectedSides(activeSides);
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Pedidos - Marmitaria</h1>
-            <p className="text-sm text-slate-400">Sistema interno de anotação e impressão</p>
+            <p className="text-sm text-slate-400">
+              Sistema interno de anotação e impressão
+            </p>
           </div>
 
           <a
@@ -210,7 +226,10 @@ setSelectedSides(activeSides);
           </a>
         </div>
 
-        <form onSubmit={createOrder} className="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <form
+          onSubmit={createOrder}
+          className="grid gap-4 lg:grid-cols-[1fr_380px]"
+        >
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl">
             <h2 className="mb-3 text-lg font-bold">Dados do cliente</h2>
 
@@ -236,11 +255,13 @@ setSelectedSides(activeSides);
                 value={form.sizeName}
                 onChange={(e) => setForm({ ...form, sizeName: e.target.value })}
               >
-                {sizes.filter((s) => s.active).map((size) => (
-                  <option key={size.id} value={size.name}>
-                    {size.name} - R$ {Number(size.normalPrice).toFixed(2)}
-                  </option>
-                ))}
+                {sizes
+                  .filter((s) => s.active)
+                  .map((size) => (
+                    <option key={size.id} value={size.name}>
+                      {size.name} - R$ {Number(size.normalPrice).toFixed(2)}
+                    </option>
+                  ))}
               </select>
 
               <select
@@ -250,7 +271,8 @@ setSelectedSides(activeSides);
                 <option value="">Selecione a carne</option>
                 {meats.map((item) => (
                   <option key={item.id} value={item.name}>
-                    {item.name}{item.specialPrice ? " - preço especial" : ""}
+                    {item.name}
+                    {item.specialPrice ? " - preço especial" : ""}
                   </option>
                 ))}
               </select>
@@ -295,40 +317,42 @@ setSelectedSides(activeSides);
 
             <h3 className="mt-5 mb-2 font-bold">Salada</h3>
 
-<div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-  {salads.map((item) => {
-    const active = form.salad === item.name;
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+              {salads.map((item) => {
+                const active = form.salad === item.name;
 
-    return (
-      <button
-        key={item.id}
-        type="button"
-        onClick={() => toggleSalad(item.name)}
-        className={`p-3 text-left text-sm font-semibold border ${
-          active
-            ? "bg-green-600 border-green-400 text-white"
-            : "bg-slate-800 border-slate-700 text-slate-200"
-        }`}
-      >
-        {item.name}
-      </button>
-    );
-  })}
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => toggleSalad(item.name)}
+                    className={`p-3 text-left text-sm font-semibold border ${
+                      active
+                        ? "bg-green-600 border-green-400 text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-200"
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                );
+              })}
 
-  <button
-    type="button"
-    onClick={() => setForm({ ...form, salad: "" })}
-    className={`p-3 text-left text-sm font-semibold border ${
-      form.salad === ""
-        ? "bg-red-700 border-red-400 text-white"
-        : "bg-slate-800 border-slate-700 text-slate-200"
-    }`}
-  >
-    Nenhuma salada
-  </button>
-</div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, salad: "" })}
+                className={`p-3 text-left text-sm font-semibold border ${
+                  form.salad === ""
+                    ? "bg-red-700 border-red-400 text-white"
+                    : "bg-slate-800 border-slate-700 text-slate-200"
+                }`}
+              >
+                Nenhuma salada
+              </button>
+            </div>
 
-            <h2 className="mt-6 mb-3 text-lg font-bold">Entrega e observações</h2>
+            <h2 className="mt-6 mb-3 text-lg font-bold">
+              Entrega e observações
+            </h2>
 
             <div className="grid gap-3">
               <textarea
@@ -340,19 +364,15 @@ setSelectedSides(activeSides);
               <input
                 placeholder="Link da localização do WhatsApp / Google Maps"
                 value={form.locationUrl}
-                onChange={(e) => setForm({ ...form, locationUrl: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, locationUrl: e.target.value })
+                }
               />
 
               <textarea
                 placeholder="Observações: sem salada, sem feijão..."
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-
-              <textarea
-                placeholder="Pedido manual de emergência, se quiser ignorar as seleções"
-                value={form.manualItems}
-                onChange={(e) => setForm({ ...form, manualItems: e.target.value })}
               />
             </div>
           </section>
@@ -399,9 +419,16 @@ setSelectedSides(activeSides);
 
           <div className="grid gap-3">
             {orders.map((order) => (
-              <div key={order.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                <strong>#{order.id} - {order.customer}</strong>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{order.items}</p>
+              <div
+                key={order.id}
+                className="rounded-xl border border-slate-800 bg-slate-950 p-3"
+              >
+                <strong>
+                  #{order.id} - {order.customer}
+                </strong>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
+                  {order.items}
+                </p>
                 <p className="mt-2 font-bold">
                   R$ {Number(order.total).toFixed(2)} - {order.payment}
                 </p>
