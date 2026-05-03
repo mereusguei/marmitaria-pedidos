@@ -37,6 +37,16 @@ type Customer = {
   locationUrl?: string | null;
 };
 
+type OrderMarmita = {
+  id: number;
+  sizeName: string;
+  meat1: string;
+  meat2: string;
+  sides: string[];
+  salad: string;
+  price: number;
+};
+
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersPage, setOrdersPage] = useState(1);
@@ -45,6 +55,8 @@ export default function Home() {
   const [sizes, setSizes] = useState<MarmitaSize[]>([]);
 
   const [selectedSides, setSelectedSides] = useState<string[]>([]);
+
+  const [orderMarmitas, setOrderMarmitas] = useState<OrderMarmita[]>([]);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -170,17 +182,27 @@ export default function Home() {
   }
 
   function buildItemsText() {
-    return [
-      `Tamanho: ${form.sizeName}`,
-      form.meat1 ? `Carne: ${form.meat1}` : "",
-      form.meat2 ? `2ª Carne: ${form.meat2}` : "",
-      selectedSides.length
-        ? `Acompanhamentos: ${selectedSides.join(", ")}`
-        : "",
-      form.salad ? `Salada: ${form.salad}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    if (orderMarmitas.length === 0) {
+      return "Nenhuma marmita adicionada ao pedido.";
+    }
+
+    return orderMarmitas
+      .map((marmita, index) => {
+        return [
+          `MARMITA ${index + 1}`,
+          `Tamanho: ${marmita.sizeName}`,
+          marmita.meat1 ? `Carne: ${marmita.meat1}` : "",
+          marmita.meat2 ? `2ª Carne: ${marmita.meat2}` : "",
+          marmita.sides.length
+            ? `Acompanhamentos: ${marmita.sides.join(", ")}`
+            : "Acompanhamentos: nenhum",
+          marmita.salad ? `Salada: ${marmita.salad}` : "Salada: nenhuma",
+          `Valor: R$ ${Number(marmita.price).toFixed(2)}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      })
+      .join("\n\n--------------------\n\n");
   }
 
   async function searchCustomers(value: string) {
@@ -341,8 +363,78 @@ export default function Home() {
     await loadModalCustomers(1, value);
   }
 
+  function resetMarmitaBuilder() {
+    const activeSides = menu
+      .filter((item) => item.category === "acompanhamento" && item.active)
+      .map((item) => item.name);
+
+    const firstActiveSalad = menu.find(
+      (item) => item.category === "salada" && item.active,
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      sizeName: "M",
+      meat1: "",
+      meat2: "",
+      salad: firstActiveSalad?.name || "",
+      total: "",
+    }));
+
+    setSelectedSides(activeSides);
+  }
+
+  function addMarmitaToOrder() {
+    if (!form.meat1) {
+      alert("Selecione pelo menos uma carne.");
+      return;
+    }
+
+    if (form.sizeName === "G com Duas Carnes" && !form.meat2) {
+      alert("Selecione a segunda carne.");
+      return;
+    }
+
+    const newMarmita: OrderMarmita = {
+      id: Date.now(),
+      sizeName: form.sizeName,
+      meat1: form.meat1,
+      meat2: form.sizeName === "G com Duas Carnes" ? form.meat2 : "",
+      sides: selectedSides,
+      salad: form.salad,
+      price: calculatedTotal,
+    };
+
+    setOrderMarmitas((prev) => [...prev, newMarmita]);
+    resetMarmitaBuilder();
+  }
+
+  function duplicateMarmita(marmita: OrderMarmita) {
+    setOrderMarmitas((prev) => [
+      ...prev,
+      {
+        ...marmita,
+        id: Date.now(),
+      },
+    ]);
+  }
+
+  function removeMarmita(id: number) {
+    setOrderMarmitas((prev) => prev.filter((marmita) => marmita.id !== id));
+  }
+
+  const orderTotal = orderMarmitas.reduce(
+    (sum, marmita) => sum + Number(marmita.price),
+    0,
+  );
+
   async function createOrder(e: React.FormEvent) {
     e.preventDefault();
+
+    if (orderMarmitas.length === 0) {
+      alert("Adicione pelo menos uma marmita ao pedido.");
+      return;
+    }
 
     const items = buildItemsText();
 
@@ -356,17 +448,21 @@ export default function Home() {
 
         customer: form.customer,
         phone: form.phone,
-        sizeName: form.sizeName,
-        meat1: form.meat1,
-        meat2: form.meat2,
-        salad: form.salad,
-        total: form.total,
+        sizeName:
+          orderMarmitas.length === 1 ? orderMarmitas[0].sizeName : "Várias",
+        meat1: orderMarmitas.length === 1 ? orderMarmitas[0].meat1 : null,
+        meat2: orderMarmitas.length === 1 ? orderMarmitas[0].meat2 : null,
+        salad: orderMarmitas.length === 1 ? orderMarmitas[0].salad : null,
+        total: orderTotal,
         payment: form.payment,
         address: form.address,
         locationUrl: form.locationUrl,
         notes: form.notes,
         items,
-        sides: selectedSides.join(", "),
+        sides:
+          orderMarmitas.length === 1
+            ? orderMarmitas[0].sides.join(", ")
+            : "Vários",
       }),
     });
 
@@ -395,6 +491,8 @@ export default function Home() {
     });
 
     setSelectedSides(activeSides);
+
+    setOrderMarmitas([]);
 
     setCustomerSearch("");
     setSelectedCustomerId(null);
@@ -610,6 +708,21 @@ export default function Home() {
               </button>
             </div>
 
+            <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-3">
+              <div className="mb-3 text-sm text-slate-300">
+                Marmita atual:{" "}
+                <strong>R$ {Number(calculatedTotal).toFixed(2)}</strong>
+              </div>
+
+              <button
+                type="button"
+                onClick={addMarmitaToOrder}
+                className="w-full bg-green-700 p-4 text-lg font-black text-white"
+              >
+                Adicionar marmita ao pedido
+              </button>
+            </div>
+
             <h2 className="mt-6 mb-3 text-lg font-bold">
               Entrega e observações
             </h2>
@@ -641,18 +754,52 @@ export default function Home() {
             <h2 className="mb-3 text-lg font-bold">Resumo</h2>
 
             <div className="rounded-xl bg-slate-950 p-3 text-sm whitespace-pre-wrap border border-slate-800">
-              {buildItemsText() || "Monte a marmita para ver o resumo."}
+              {buildItemsText()}
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {orderMarmitas.map((marmita, index) => (
+                <div
+                  key={marmita.id}
+                  className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm"
+                >
+                  <strong>Marmita {index + 1}</strong>
+                  <p>
+                    {marmita.sizeName} - {marmita.meat1}
+                  </p>
+                  {marmita.meat2 && <p>2ª carne: {marmita.meat2}</p>}
+                  <p className="font-bold">
+                    R$ {Number(marmita.price).toFixed(2)}
+                  </p>
+
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => duplicateMarmita(marmita)}
+                      className="bg-blue-700 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      Duplicar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeMarmita(marmita.id)}
+                      className="bg-red-700 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="mt-4 grid gap-3">
-              <input
-                placeholder="Valor total"
-                type="number"
-                step="0.01"
-                value={form.total}
-                onChange={(e) => setForm({ ...form, total: e.target.value })}
-                required
-              />
+              <div className="rounded-xl border border-green-700 bg-green-950 p-4">
+                <p className="text-sm text-green-300">Total do pedido</p>
+                <strong className="text-2xl">
+                  R$ {Number(orderTotal).toFixed(2)}
+                </strong>
+              </div>
 
               <select
                 value={form.payment}
