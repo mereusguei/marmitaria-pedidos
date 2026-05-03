@@ -13,8 +13,35 @@ export async function GET() {
 export async function POST(req: Request) {
   const data = await req.json();
 
+  let customerId = data.customerId ? Number(data.customerId) : null;
+
+  if (data.createCustomer) {
+    const newCustomer = await prisma.customer.create({
+      data: {
+        name: data.customer,
+        phone: data.phone || null,
+        address: data.address || null,
+        locationUrl: data.locationUrl || null,
+      },
+    });
+
+    customerId = newCustomer.id;
+  }
+
+  if (data.updateCustomerAddress && customerId) {
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        phone: data.phone || null,
+        address: data.address || null,
+        locationUrl: data.locationUrl || null,
+      },
+    });
+  }
+
   const order = await prisma.order.create({
     data: {
+      customerId,
       customer: data.customer,
       phone: data.phone || null,
       items: data.items,
@@ -23,7 +50,6 @@ export async function POST(req: Request) {
       address: data.address || null,
       locationUrl: data.locationUrl || null,
       notes: data.notes || null,
-
       sizeName: data.sizeName || null,
       meat1: data.meat1 || null,
       meat2: data.meat2 || null,

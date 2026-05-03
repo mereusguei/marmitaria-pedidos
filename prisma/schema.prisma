@@ -19,6 +19,7 @@ model Order {
   notes       String?
   status      String   @default("novo")
 
+  customerId  Int?
   sizeName    String?
   meat1       String?
   meat2       String?
@@ -26,6 +27,20 @@ model Order {
   salad       String?
 
   createdAt   DateTime @default(now())
+
+  customerRef Customer? @relation(fields: [customerId], references: [id])
+}
+
+model Customer {
+  id          Int      @id @default(autoincrement())
+  name        String
+  phone       String?
+  address     String?
+  locationUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
 }
 
 model MenuItem {

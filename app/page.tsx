@@ -29,12 +29,28 @@ type MarmitaSize = {
   active: boolean;
 };
 
+type Customer = {
+  id: number;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  locationUrl?: string | null;
+};
+
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [sizes, setSizes] = useState<MarmitaSize[]>([]);
 
   const [selectedSides, setSelectedSides] = useState<string[]>([]);
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
+    null,
+  );
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [useNewAddress, setUseNewAddress] = useState(false);
 
   const [form, setForm] = useState({
     customer: "",
@@ -149,6 +165,61 @@ export default function Home() {
       .join("\n");
   }
 
+  async function searchCustomers(value: string) {
+    setCustomerSearch(value);
+
+    if (!value.trim()) {
+      setCustomers([]);
+      return;
+    }
+
+    const res = await fetch(`/api/customers?q=${encodeURIComponent(value)}`);
+    const data = await res.json();
+    setCustomers(data);
+  }
+
+  function selectCustomer(customer: Customer) {
+    setSelectedCustomerId(customer.id);
+    setIsNewCustomer(false);
+    setUseNewAddress(false);
+    setCustomerSearch(`#${customer.id} - ${customer.name}`);
+
+    setForm((prev) => ({
+      ...prev,
+      customer: customer.name,
+      phone: customer.phone || "",
+      address: customer.address || "",
+      locationUrl: customer.locationUrl || "",
+    }));
+
+    setCustomers([]);
+  }
+
+  function startNewCustomer() {
+    setSelectedCustomerId(null);
+    setIsNewCustomer(true);
+    setUseNewAddress(true);
+    setCustomerSearch("");
+
+    setForm((prev) => ({
+      ...prev,
+      customer: "",
+      phone: "",
+      address: "",
+      locationUrl: "",
+    }));
+  }
+
+  function startNewAddress() {
+    setUseNewAddress(true);
+
+    setForm((prev) => ({
+      ...prev,
+      address: "",
+      locationUrl: "",
+    }));
+  }
+
   async function createOrder(e: React.FormEvent) {
     e.preventDefault();
 
@@ -158,6 +229,10 @@ export default function Home() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        customerId: selectedCustomerId,
+        createCustomer: isNewCustomer,
+        updateCustomerAddress: selectedCustomerId && useNewAddress,
+
         customer: form.customer,
         phone: form.phone,
         sizeName: form.sizeName,
@@ -200,6 +275,12 @@ export default function Home() {
 
     setSelectedSides(activeSides);
 
+    setCustomerSearch("");
+    setSelectedCustomerId(null);
+    setIsNewCustomer(false);
+    setUseNewAddress(false);
+    setCustomers([]);
+
     await loadOrders();
 
     if (order?.id) {
@@ -233,7 +314,61 @@ export default function Home() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl">
             <h2 className="mb-3 text-lg font-bold">Dados do cliente</h2>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="mb-3 flex gap-2">
+              <button
+                type="button"
+                onClick={startNewCustomer}
+                className={`px-4 py-3 font-bold ${
+                  isNewCustomer
+                    ? "bg-green-700 text-white"
+                    : "bg-slate-800 text-slate-200"
+                }`}
+              >
+                Cliente Novo?
+              </button>
+
+              {selectedCustomerId && (
+                <button
+                  type="button"
+                  onClick={startNewAddress}
+                  className="bg-yellow-700 px-4 py-3 font-bold text-white"
+                >
+                  Novo endereço
+                </button>
+              )}
+            </div>
+
+            <div className="relative grid gap-3 md:grid-cols-2">
+              <div className="relative">
+                <input
+                  placeholder="Digite ID, número ou nome do cliente"
+                  value={customerSearch}
+                  onChange={(e) => searchCustomers(e.target.value)}
+                />
+
+                {customers.length > 0 && (
+                  <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-950 shadow-xl">
+                    {customers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        onClick={() => selectCustomer(customer)}
+                        className="block w-full border-b border-slate-800 p-3 text-left hover:bg-slate-800"
+                      >
+                        <strong>
+                          #{customer.id} - {customer.name}
+                        </strong>
+                        <br />
+                        <span className="text-sm text-slate-400">
+                          {customer.phone || "Sem telefone"} ·{" "}
+                          {customer.address || "Sem endereço"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <input
                 placeholder="Nome do cliente"
                 value={form.customer}
@@ -246,6 +381,17 @@ export default function Home() {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
+
+              {selectedCustomerId && (
+                <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-slate-300">
+                  Cliente selecionado: <strong>#{selectedCustomerId}</strong>
+                  {useNewAddress && (
+                    <div className="mt-1 text-yellow-400">
+                      Novo endereço para este pedido.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <h2 className="mt-6 mb-3 text-lg font-bold">Montar marmita</h2>
