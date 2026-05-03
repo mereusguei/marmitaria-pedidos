@@ -530,12 +530,21 @@ export default function Home() {
             </p>
           </div>
 
-          <a
-            href="/config"
-            className="rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white border border-slate-700"
-          >
-            Configurar cardápio
-          </a>
+          <div className="flex gap-2">
+            <a
+              href="/divulgar"
+              className="rounded-xl bg-green-700 px-4 py-3 text-sm font-bold text-white border border-green-600"
+            >
+              Divulgar cardápio
+            </a>
+
+            <a
+              href="/config"
+              className="rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white border border-slate-700"
+            >
+              Configurar cardápio
+            </a>
+          </div>
         </div>
 
         <form
