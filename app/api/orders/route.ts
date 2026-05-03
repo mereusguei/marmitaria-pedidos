@@ -23,6 +23,12 @@ export async function POST(req: Request) {
       address: data.address || null,
       locationUrl: data.locationUrl || null,
       notes: data.notes || null,
+
+      sizeName: data.sizeName || null,
+      meat1: data.meat1 || null,
+      meat2: data.meat2 || null,
+      sides: data.sides || null,
+      salad: data.salad || null,
     },
   });
 

@@ -18,5 +18,31 @@ model Order {
   locationUrl String?
   notes       String?
   status      String   @default("novo")
+
+  sizeName    String?
+  meat1       String?
+  meat2       String?
+  sides       String?
+  salad       String?
+
   createdAt   DateTime @default(now())
+}
+
+model MenuItem {
+  id             Int      @id @default(autoincrement())
+  name           String
+  category       String
+  active         Boolean  @default(true)
+  specialPrice   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model MarmitaSize {
+  id           Int      @id @default(autoincrement())
+  name         String
+  normalPrice  Float
+  specialPrice Float
+  twoMeatPrice Float?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }
