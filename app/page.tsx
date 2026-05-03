@@ -45,6 +45,7 @@ type OrderMarmita = {
   sides: string[];
   salad: string;
   price: number;
+  quantity: number;
 };
 
 export default function Home() {
@@ -57,6 +58,8 @@ export default function Home() {
   const [selectedSides, setSelectedSides] = useState<string[]>([]);
 
   const [orderMarmitas, setOrderMarmitas] = useState<OrderMarmita[]>([]);
+
+  const [currentMarmitaQuantity, setCurrentMarmitaQuantity] = useState(1);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -189,7 +192,7 @@ export default function Home() {
     return orderMarmitas
       .map((marmita, index) => {
         return [
-          `MARMITA ${index + 1}`,
+          `MARMITA ${index + 1} - QTD: ${marmita.quantity}`,
           `Tamanho: ${marmita.sizeName}`,
           marmita.meat1 ? `Carne: ${marmita.meat1}` : "",
           marmita.meat2 ? `2ª Carne: ${marmita.meat2}` : "",
@@ -197,7 +200,8 @@ export default function Home() {
             ? `Acompanhamentos: ${marmita.sides.join(", ")}`
             : "Acompanhamentos: nenhum",
           marmita.salad ? `Salada: ${marmita.salad}` : "Salada: nenhuma",
-          `Valor: R$ ${Number(marmita.price).toFixed(2)}`,
+          `Valor unitário: R$ ${Number(marmita.price).toFixed(2)}`,
+          `Subtotal: R$ ${Number(marmita.price * marmita.quantity).toFixed(2)}`,
         ]
           .filter(Boolean)
           .join("\n");
@@ -382,6 +386,7 @@ export default function Home() {
     }));
 
     setSelectedSides(activeSides);
+    setCurrentMarmitaQuantity(1);
   }
 
   function addMarmitaToOrder() {
@@ -403,20 +408,26 @@ export default function Home() {
       sides: selectedSides,
       salad: form.salad,
       price: calculatedTotal,
+      quantity: currentMarmitaQuantity,
     };
 
     setOrderMarmitas((prev) => [...prev, newMarmita]);
     resetMarmitaBuilder();
   }
 
-  function duplicateMarmita(marmita: OrderMarmita) {
-    setOrderMarmitas((prev) => [
-      ...prev,
-      {
-        ...marmita,
-        id: Date.now(),
-      },
-    ]);
+  function updateMarmitaQuantity(id: number, quantity: number) {
+    const safeQuantity = Math.max(1, quantity);
+
+    setOrderMarmitas((prev) =>
+      prev.map((marmita) =>
+        marmita.id === id
+          ? {
+              ...marmita,
+              quantity: safeQuantity,
+            }
+          : marmita,
+      ),
+    );
   }
 
   function removeMarmita(id: number) {
@@ -424,7 +435,7 @@ export default function Home() {
   }
 
   const orderTotal = orderMarmitas.reduce(
-    (sum, marmita) => sum + Number(marmita.price),
+    (sum, marmita) => sum + Number(marmita.price) * marmita.quantity,
     0,
   );
 
@@ -493,6 +504,8 @@ export default function Home() {
     setSelectedSides(activeSides);
 
     setOrderMarmitas([]);
+
+    setCurrentMarmitaQuantity(1);
 
     setCustomerSearch("");
     setSelectedCustomerId(null);
@@ -714,6 +727,33 @@ export default function Home() {
                 <strong>R$ {Number(calculatedTotal).toFixed(2)}</strong>
               </div>
 
+              <div className="mb-3 grid gap-2">
+                <label className="text-sm font-bold text-slate-300">
+                  Quantidade desta marmita
+                </label>
+
+                <input
+                  type="number"
+                  min="1"
+                  value={currentMarmitaQuantity}
+                  onChange={(e) =>
+                    setCurrentMarmitaQuantity(
+                      Math.max(1, Number(e.target.value || 1)),
+                    )
+                  }
+                />
+
+                <div className="text-sm text-slate-400">
+                  Subtotal:{" "}
+                  <strong>
+                    R${" "}
+                    {Number(calculatedTotal * currentMarmitaQuantity).toFixed(
+                      2,
+                    )}
+                  </strong>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={addMarmitaToOrder}
@@ -763,23 +803,37 @@ export default function Home() {
                   key={marmita.id}
                   className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm"
                 >
-                  <strong>Marmita {index + 1}</strong>
+                  <strong>
+                    Marmita {index + 1} - Qtd: {marmita.quantity}
+                  </strong>
                   <p>
                     {marmita.sizeName} - {marmita.meat1}
                   </p>
                   {marmita.meat2 && <p>2ª carne: {marmita.meat2}</p>}
                   <p className="font-bold">
-                    R$ {Number(marmita.price).toFixed(2)}
+                    Unitário: R$ {Number(marmita.price).toFixed(2)}
+                  </p>
+                  <p className="font-bold">
+                    Subtotal: R${" "}
+                    {Number(marmita.price * marmita.quantity).toFixed(2)}
                   </p>
 
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => duplicateMarmita(marmita)}
-                      className="bg-blue-700 px-3 py-2 text-xs font-bold text-white"
-                    >
-                      Duplicar
-                    </button>
+                  <div className="mt-2 grid gap-2">
+                    <label className="text-xs font-bold text-slate-300">
+                      Quantidade
+                    </label>
+
+                    <input
+                      type="number"
+                      min="1"
+                      value={marmita.quantity}
+                      onChange={(e) =>
+                        updateMarmitaQuantity(
+                          marmita.id,
+                          Number(e.target.value || 1),
+                        )
+                      }
+                    />
 
                     <button
                       type="button"
