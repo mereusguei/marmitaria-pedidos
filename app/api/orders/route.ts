@@ -1,13 +1,32 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
-  const orders = await prisma.order.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
 
-  return NextResponse.json(orders);
+  const page = Number(searchParams.get("page") || "1");
+  const limit = Number(searchParams.get("limit") || "5");
+
+  const safePage = Math.max(page, 1);
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const skip = (safePage - 1) * safeLimit;
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: safeLimit,
+    }),
+    prisma.order.count(),
+  ]);
+
+  return NextResponse.json({
+    orders,
+    total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(Math.ceil(total / safeLimit), 1),
+  });
 }
 
 export async function POST(req: Request) {

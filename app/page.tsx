@@ -39,6 +39,8 @@ type Customer = {
 
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersTotalPages, setOrdersTotalPages] = useState(1);
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [sizes, setSizes] = useState<MarmitaSize[]>([]);
 
@@ -50,7 +52,20 @@ export default function Home() {
     null,
   );
   const [isNewCustomer, setIsNewCustomer] = useState(false);
-  const [useNewAddress, setUseNewAddress] = useState(false);
+
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [modalCustomers, setModalCustomers] = useState<Customer[]>([]);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerModalForm, setCustomerModalForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    locationUrl: "",
+  });
+
+  const [modalCustomerSearch, setModalCustomerSearch] = useState("");
+  const [modalCustomersPage, setModalCustomersPage] = useState(1);
+  const [modalCustomersTotalPages, setModalCustomersTotalPages] = useState(1);
 
   const [form, setForm] = useState({
     customer: "",
@@ -66,10 +81,13 @@ export default function Home() {
     notes: "",
   });
 
-  async function loadOrders() {
-    const res = await fetch("/api/orders");
+  async function loadOrders(page = ordersPage) {
+    const res = await fetch(`/api/orders?page=${page}&limit=5`);
     const data = await res.json();
-    setOrders(data);
+
+    setOrders(data.orders);
+    setOrdersPage(data.page);
+    setOrdersTotalPages(data.totalPages);
   }
 
   async function loadMenu() {
@@ -175,13 +193,12 @@ export default function Home() {
 
     const res = await fetch(`/api/customers?q=${encodeURIComponent(value)}`);
     const data = await res.json();
-    setCustomers(data);
+    setCustomers(data.customers);
   }
 
   function selectCustomer(customer: Customer) {
     setSelectedCustomerId(customer.id);
     setIsNewCustomer(false);
-    setUseNewAddress(false);
     setCustomerSearch(`#${customer.id} - ${customer.name}`);
 
     setForm((prev) => ({
@@ -198,7 +215,6 @@ export default function Home() {
   function startNewCustomer() {
     setSelectedCustomerId(null);
     setIsNewCustomer(true);
-    setUseNewAddress(true);
     setCustomerSearch("");
 
     setForm((prev) => ({
@@ -210,14 +226,119 @@ export default function Home() {
     }));
   }
 
-  function startNewAddress() {
-    setUseNewAddress(true);
+  async function loadModalCustomers(
+    page = modalCustomersPage,
+    q = modalCustomerSearch,
+  ) {
+    const res = await fetch(
+      `/api/customers?page=${page}&limit=10&q=${encodeURIComponent(q)}`,
+    );
 
-    setForm((prev) => ({
-      ...prev,
+    const data = await res.json();
+
+    setModalCustomers(data.customers);
+    setModalCustomersPage(data.page);
+    setModalCustomersTotalPages(data.totalPages);
+  }
+
+  async function openCustomerModal() {
+    setIsCustomerModalOpen(true);
+    setModalCustomerSearch("");
+    setModalCustomersPage(1);
+    await loadModalCustomers(1, "");
+  }
+
+  function closeCustomerModal() {
+    setIsCustomerModalOpen(false);
+    setEditingCustomer(null);
+    setCustomerModalForm({
+      name: "",
+      phone: "",
       address: "",
       locationUrl: "",
-    }));
+    });
+  }
+
+  function editCustomer(customer: Customer) {
+    setEditingCustomer(customer);
+    setCustomerModalForm({
+      name: customer.name,
+      phone: customer.phone || "",
+      address: customer.address || "",
+      locationUrl: customer.locationUrl || "",
+    });
+  }
+
+  async function saveCustomerFromModal(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (editingCustomer) {
+      const res = await fetch(`/api/customers/${editingCustomer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(customerModalForm),
+      });
+
+      const updated = await res.json();
+
+      if (selectedCustomerId === updated.id) {
+        selectCustomer(updated);
+      }
+    } else {
+      await fetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(customerModalForm),
+      });
+    }
+
+    setEditingCustomer(null);
+    setCustomerModalForm({
+      name: "",
+      phone: "",
+      address: "",
+      locationUrl: "",
+    });
+
+    await loadModalCustomers(modalCustomersPage, modalCustomerSearch);
+  }
+
+  async function deleteCustomer(id: number) {
+    const ok = confirm("Tem certeza que deseja excluir este cliente?");
+    if (!ok) return;
+
+    await fetch(`/api/customers/${id}`, {
+      method: "DELETE",
+    });
+
+    if (selectedCustomerId === id) {
+      setSelectedCustomerId(null);
+      setCustomerSearch("");
+      setForm((prev) => ({
+        ...prev,
+        customer: "",
+        phone: "",
+        address: "",
+        locationUrl: "",
+      }));
+    }
+
+    await loadModalCustomers(modalCustomersPage, modalCustomerSearch);
+  }
+
+  function toggleNewCustomer() {
+    if (isNewCustomer) {
+      setIsNewCustomer(false);
+      return;
+    }
+
+    startNewCustomer();
+  }
+
+  async function searchModalCustomers(value: string) {
+    setModalCustomerSearch(value);
+    setModalCustomersPage(1);
+    await loadModalCustomers(1, value);
   }
 
   async function createOrder(e: React.FormEvent) {
@@ -231,7 +352,7 @@ export default function Home() {
       body: JSON.stringify({
         customerId: selectedCustomerId,
         createCustomer: isNewCustomer,
-        updateCustomerAddress: selectedCustomerId && useNewAddress,
+        updateCustomerAddress: Boolean(selectedCustomerId),
 
         customer: form.customer,
         phone: form.phone,
@@ -278,10 +399,9 @@ export default function Home() {
     setCustomerSearch("");
     setSelectedCustomerId(null);
     setIsNewCustomer(false);
-    setUseNewAddress(false);
     setCustomers([]);
 
-    await loadOrders();
+    await loadOrders(1);
 
     if (order?.id) {
       window.open(`/print/${order.id}`, "_blank");
@@ -317,7 +437,7 @@ export default function Home() {
             <div className="mb-3 flex gap-2">
               <button
                 type="button"
-                onClick={startNewCustomer}
+                onClick={toggleNewCustomer}
                 className={`px-4 py-3 font-bold ${
                   isNewCustomer
                     ? "bg-green-700 text-white"
@@ -326,48 +446,47 @@ export default function Home() {
               >
                 Cliente Novo?
               </button>
-
-              {selectedCustomerId && (
-                <button
-                  type="button"
-                  onClick={startNewAddress}
-                  className="bg-yellow-700 px-4 py-3 font-bold text-white"
-                >
-                  Novo endereço
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={openCustomerModal}
+                className="bg-blue-700 px-4 py-3 font-bold text-white"
+              >
+                Editar Cliente
+              </button>
             </div>
 
             <div className="relative grid gap-3 md:grid-cols-2">
-              <div className="relative">
-                <input
-                  placeholder="Digite ID, número ou nome do cliente"
-                  value={customerSearch}
-                  onChange={(e) => searchCustomers(e.target.value)}
-                />
+              {!isNewCustomer && (
+                <div className="relative">
+                  <input
+                    placeholder="Digite ID, número ou nome do cliente"
+                    value={customerSearch}
+                    onChange={(e) => searchCustomers(e.target.value)}
+                  />
 
-                {customers.length > 0 && (
-                  <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-950 shadow-xl">
-                    {customers.map((customer) => (
-                      <button
-                        key={customer.id}
-                        type="button"
-                        onClick={() => selectCustomer(customer)}
-                        className="block w-full border-b border-slate-800 p-3 text-left hover:bg-slate-800"
-                      >
-                        <strong>
-                          #{customer.id} - {customer.name}
-                        </strong>
-                        <br />
-                        <span className="text-sm text-slate-400">
-                          {customer.phone || "Sem telefone"} ·{" "}
-                          {customer.address || "Sem endereço"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  {customers.length > 0 && (
+                    <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-950 shadow-xl">
+                      {customers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => selectCustomer(customer)}
+                          className="block w-full border-b border-slate-800 p-3 text-left hover:bg-slate-800"
+                        >
+                          <strong>
+                            #{customer.id} - {customer.name}
+                          </strong>
+                          <br />
+                          <span className="text-sm text-slate-400">
+                            {customer.phone || "Sem telefone"} ·{" "}
+                            {customer.address || "Sem endereço"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <input
                 placeholder="Nome do cliente"
@@ -385,11 +504,6 @@ export default function Home() {
               {selectedCustomerId && (
                 <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-slate-300">
                   Cliente selecionado: <strong>#{selectedCustomerId}</strong>
-                  {useNewAddress && (
-                    <div className="mt-1 text-yellow-400">
-                      Novo endereço para este pedido.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -587,8 +701,196 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {Array.from({ length: ordersTotalPages }, (_, index) => {
+              const page = index + 1;
+
+              return (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => loadOrders(page)}
+                  className={`px-3 py-2 font-bold ${
+                    ordersPage === page
+                      ? "bg-green-700 text-white"
+                      : "bg-slate-800 text-slate-200"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+          </div>
         </section>
       </div>
+
+      {isCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4">
+          <div className="mx-auto max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 p-4 text-slate-100">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold">Editar clientes</h2>
+                <p className="text-sm text-slate-400">
+                  Cadastre, edite ou exclua clientes salvos.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeCustomerModal}
+                className="bg-slate-800 px-4 py-2 font-bold"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form
+              onSubmit={saveCustomerFromModal}
+              className="mb-5 grid gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3 md:grid-cols-2"
+            >
+              <input
+                placeholder="Nome"
+                value={customerModalForm.name}
+                onChange={(e) =>
+                  setCustomerModalForm({
+                    ...customerModalForm,
+                    name: e.target.value,
+                  })
+                }
+                required
+              />
+
+              <input
+                placeholder="Telefone"
+                value={customerModalForm.phone}
+                onChange={(e) =>
+                  setCustomerModalForm({
+                    ...customerModalForm,
+                    phone: e.target.value,
+                  })
+                }
+              />
+
+              <textarea
+                placeholder="Endereço escrito"
+                value={customerModalForm.address}
+                onChange={(e) =>
+                  setCustomerModalForm({
+                    ...customerModalForm,
+                    address: e.target.value,
+                  })
+                }
+              />
+
+              <textarea
+                placeholder="Link da localização / QR Code"
+                value={customerModalForm.locationUrl}
+                onChange={(e) =>
+                  setCustomerModalForm({
+                    ...customerModalForm,
+                    locationUrl: e.target.value,
+                  })
+                }
+              />
+
+              <button
+                type="submit"
+                className="bg-green-700 p-3 font-black text-white"
+              >
+                {editingCustomer ? "Atualizar cliente" : "Adicionar cliente"}
+              </button>
+
+              {editingCustomer && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCustomer(null);
+                    setCustomerModalForm({
+                      name: "",
+                      phone: "",
+                      address: "",
+                      locationUrl: "",
+                    });
+                  }}
+                  className="bg-slate-700 p-3 font-bold text-white"
+                >
+                  Cancelar edição
+                </button>
+              )}
+            </form>
+
+            <div className="mb-4">
+              <input
+                placeholder="Pesquisar cliente por nome, ID ou telefone"
+                value={modalCustomerSearch}
+                onChange={(e) => searchModalCustomers(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              {modalCustomers.map((customer) => (
+                <div
+                  key={customer.id}
+                  className="grid gap-2 rounded-xl border border-slate-800 bg-slate-950 p-3 md:grid-cols-[1fr_auto_auto]"
+                >
+                  <div>
+                    <strong>
+                      #{customer.id} - {customer.name}
+                    </strong>
+                    <p className="text-sm text-slate-400">
+                      {customer.phone || "Sem telefone"}
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      {customer.address || "Sem endereço"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => editCustomer(customer)}
+                    className="bg-blue-700 px-4 py-2 font-bold text-white"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteCustomer(customer.id)}
+                    className="bg-red-700 px-4 py-2 font-bold text-white"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {Array.from({ length: modalCustomersTotalPages }, (_, index) => {
+                const page = index + 1;
+
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() =>
+                      loadModalCustomers(page, modalCustomerSearch)
+                    }
+                    className={`px-3 py-2 font-bold ${
+                      modalCustomersPage === page
+                        ? "bg-green-700 text-white"
+                        : "bg-slate-800 text-slate-200"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
