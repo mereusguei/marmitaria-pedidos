@@ -8,6 +8,7 @@ type Order = {
   items: string;
   total: number;
   payment: string;
+  changeFor?: number | null;
   status: string;
   createdAt: string;
 };
@@ -44,6 +45,8 @@ type OrderMarmita = {
   meat2: string;
   sides: string[];
   salad: string;
+  removedItems: string[];
+  notes: string;
   price: number;
   quantity: number;
 };
@@ -91,9 +94,11 @@ export default function Home() {
     salad: "",
     total: "",
     payment: "PIX",
+    changeFor: "",
     address: "",
     locationUrl: "",
-    notes: "",
+    marmitaNotes: "",
+    orderNotes: "",
   });
 
   async function loadOrders(page = ordersPage) {
@@ -146,10 +151,14 @@ export default function Home() {
   const selectedMeat = meats.find((item) => item.name === form.meat1);
   const selectedSize = sizes.find((size) => size.name === form.sizeName);
 
+  function isTwoMixSize(sizeName: string) {
+    return sizeName === "G com 2 Misturas" || sizeName === "G com Duas Carnes";
+  }
+
   const calculatedTotal = useMemo(() => {
     if (!selectedSize) return 0;
 
-    if (form.sizeName === "G com Duas Carnes") {
+    if (isTwoMixSize(form.sizeName)) {
       return selectedSize.twoMeatPrice || selectedSize.normalPrice;
     }
 
@@ -184,29 +193,64 @@ export default function Home() {
     );
   }
 
+  function getRemovedItems(currentSides: string[], currentSalad: string) {
+    const activeSides = sides.map((item) => item.name);
+    const activeSalads = salads.map((item) => item.name);
+
+    const removedSides = activeSides.filter(
+      (side) => !currentSides.includes(side),
+    );
+
+    const removedSalads = activeSalads.filter(
+      (salad) => salad !== currentSalad,
+    );
+
+    return [...removedSides, ...removedSalads];
+  }
+
+  function getSizePrintName(sizeName: string, quantity: number) {
+    const plural = quantity > 1;
+
+    if (sizeName === "M") {
+      return plural ? "Marmitas Médias" : "Marmita Média";
+    }
+
+    if (sizeName === "G") {
+      return plural ? "Marmitas Grandes" : "Marmita Grande";
+    }
+
+    if (isTwoMixSize(sizeName)) {
+      return plural
+        ? "Marmitas Grandes (2 Misturas)"
+        : "Marmita Grande (2 Misturas)";
+    }
+
+    return sizeName;
+  }
+
   function buildItemsText() {
     if (orderMarmitas.length === 0) {
       return "Nenhuma marmita adicionada ao pedido.";
     }
 
     return orderMarmitas
-      .map((marmita, index) => {
+      .map((marmita) => {
+        const removedLines = marmita.removedItems.map(
+          (item) => `!!! SEM ${item.toUpperCase()}`,
+        );
+
         return [
-          `MARMITA ${index + 1} - QTD: ${marmita.quantity}`,
-          `Tamanho: ${marmita.sizeName}`,
-          marmita.meat1 ? `Carne: ${marmita.meat1}` : "",
-          marmita.meat2 ? `2ª Carne: ${marmita.meat2}` : "",
-          marmita.sides.length
-            ? `Acompanhamentos: ${marmita.sides.join(", ")}`
-            : "Acompanhamentos: nenhum",
-          marmita.salad ? `Salada: ${marmita.salad}` : "Salada: nenhuma",
-          `Valor unitário: R$ ${Number(marmita.price).toFixed(2)}`,
-          `Subtotal: R$ ${Number(marmita.price * marmita.quantity).toFixed(2)}`,
+          `${marmita.quantity}x ${getSizePrintName(marmita.sizeName, marmita.quantity)}`,
+          marmita.meat1 ? marmita.meat1 : "",
+          marmita.meat2 ? marmita.meat2 : "",
+          ...removedLines,
+          marmita.notes ? `OBS: ${marmita.notes.toUpperCase()}` : "",
+          `Valor Unitário: R$ ${Number(marmita.price).toFixed(2)}`,
         ]
           .filter(Boolean)
           .join("\n");
       })
-      .join("\n\n--------------------\n\n");
+      .join("\n----------------------------------------\n");
   }
 
   async function searchCustomers(value: string) {
@@ -383,6 +427,7 @@ export default function Home() {
       meat2: "",
       salad: firstActiveSalad?.name || "",
       total: "",
+      marmitaNotes: "",
     }));
 
     setSelectedSides(activeSides);
@@ -395,18 +440,15 @@ export default function Home() {
       return;
     }
 
-    if (form.sizeName === "G com Duas Carnes" && !form.meat2) {
-      alert("Selecione a segunda carne.");
-      return;
-    }
-
     const newMarmita: OrderMarmita = {
       id: Date.now(),
       sizeName: form.sizeName,
       meat1: form.meat1,
-      meat2: form.sizeName === "G com Duas Carnes" ? form.meat2 : "",
+      meat2: isTwoMixSize(form.sizeName) ? form.meat2 : "",
       sides: selectedSides,
       salad: form.salad,
+      removedItems: getRemovedItems(selectedSides, form.salad),
+      notes: form.marmitaNotes,
       price: calculatedTotal,
       quantity: currentMarmitaQuantity,
     };
@@ -466,9 +508,10 @@ export default function Home() {
         salad: orderMarmitas.length === 1 ? orderMarmitas[0].salad : null,
         total: orderTotal,
         payment: form.payment,
+        changeFor: form.payment === "Dinheiro" ? form.changeFor : "",
         address: form.address,
         locationUrl: form.locationUrl,
-        notes: form.notes,
+        notes: form.orderNotes,
         items,
         sides:
           orderMarmitas.length === 1
@@ -496,9 +539,11 @@ export default function Home() {
       salad: firstActiveSalad?.name || "",
       total: "",
       payment: "PIX",
+      changeFor: "",
       address: "",
       locationUrl: "",
-      notes: "",
+      marmitaNotes: "",
+      orderNotes: "",
     });
 
     setSelectedSides(activeSides);
@@ -657,12 +702,12 @@ export default function Home() {
                 ))}
               </select>
 
-              {form.sizeName === "G com Duas Carnes" && (
+              {isTwoMixSize(form.sizeName) && (
                 <select
                   value={form.meat2}
                   onChange={(e) => setForm({ ...form, meat2: e.target.value })}
                 >
-                  <option value="">Selecione a 2ª carne</option>
+                  <option value="">2ª mistura opcional</option>
                   {meats.map((item) => (
                     <option key={item.id} value={item.name}>
                       {item.name}
@@ -763,6 +808,15 @@ export default function Home() {
                 </div>
               </div>
 
+              <textarea
+                className="w-full"
+                placeholder="Observação desta marmita: pouco caldo, sem pimenta..."
+                value={form.marmitaNotes}
+                onChange={(e) =>
+                  setForm({ ...form, marmitaNotes: e.target.value })
+                }
+              />
+
               <button
                 type="button"
                 onClick={addMarmitaToOrder}
@@ -783,18 +837,20 @@ export default function Home() {
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
               />
 
+              <textarea
+                placeholder="Observação geral do pedido: bater no portão, entregar no vizinho..."
+                value={form.orderNotes}
+                onChange={(e) =>
+                  setForm({ ...form, orderNotes: e.target.value })
+                }
+              />
+
               <input
                 placeholder="Link da localização do WhatsApp / Google Maps"
                 value={form.locationUrl}
                 onChange={(e) =>
                   setForm({ ...form, locationUrl: e.target.value })
                 }
-              />
-
-              <textarea
-                placeholder="Observações: sem salada, sem feijão..."
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </div>
           </section>
@@ -818,7 +874,7 @@ export default function Home() {
                   <p>
                     {marmita.sizeName} - {marmita.meat1}
                   </p>
-                  {marmita.meat2 && <p>2ª carne: {marmita.meat2}</p>}
+                  {marmita.meat2 && <p>2ª mistura: {marmita.meat2}</p>}
                   <p className="font-bold">
                     Unitário: R$ {Number(marmita.price).toFixed(2)}
                   </p>
@@ -873,6 +929,18 @@ export default function Home() {
                 <option>Cartão</option>
                 <option>Fiado</option>
               </select>
+
+              {form.payment === "Dinheiro" && (
+                <input
+                  placeholder="Troco para quanto? Ex: 50"
+                  type="number"
+                  step="0.01"
+                  value={form.changeFor}
+                  onChange={(e) =>
+                    setForm({ ...form, changeFor: e.target.value })
+                  }
+                />
+              )}
 
               <button
                 type="submit"

@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       items: data.items,
       total: Number(data.total),
       payment: data.payment,
+      changeFor: data.changeFor ? Number(data.changeFor) : null,
       address: data.address || null,
       locationUrl: data.locationUrl || null,
       notes: data.notes || null,

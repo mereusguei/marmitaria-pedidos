@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 import { QRCodeSVG } from "qrcode.react";
 
+function formatPrintItems(items: string) {
+  return items
+    .replace(/G com Duas Carnes/g, "G com 2 Misturas")
+    .replace(/R\$ ([0-9]+)\.([0-9]{2})/g, "R$ $1,$2");
+}
+
 export default async function PrintPage(props: any) {
   const params = await props.params;
   const id = Number(params?.id);
@@ -21,25 +27,40 @@ export default async function PrintPage(props: any) {
     <html>
       <body>
         <div className="ticket">
-          <h2>MARMITARIA</h2>
-          <h1>Pedido #{order.id}</h1>
-
-          <p><strong>Cliente:</strong> {order.customer}</p>
-          {order.phone && <p><strong>Tel:</strong> {order.phone}</p>}
-
-          <hr />
-
-          <pre>{order.items}</pre>
+          <div className="customer">
+            <p>{order.customer}</p>
+            {order.phone && <p>{order.phone}</p>}
+          </div>
 
           <hr />
 
-          <p><strong>Total:</strong> R$ {Number(order.total).toFixed(2)}</p>
-          <p><strong>Pagamento:</strong> {order.payment}</p>
+          <pre>{formatPrintItems(order.items)}</pre>
+
+          {order.notes && (
+            <>
+              <p className="obs">OBS: {order.notes.toUpperCase()}</p>
+            </>
+          )}
+
+          <hr />
+
+          <p className="total">
+            Total: R$ {Number(order.total).toFixed(2).replace(".", ",")}
+          </p>
+
+          <p>Pagamento: {order.payment}</p>
+
+          {order.changeFor && (
+            <p>
+              Troco para: R${" "}
+              {Number(order.changeFor).toFixed(2).replace(".", ",")}
+            </p>
+          )}
 
           {order.address && (
             <>
               <hr />
-              <p><strong>Endereço:</strong></p>
+              <p className="section-title">Endereço:</p>
               <p>{order.address}</p>
             </>
           )}
@@ -47,57 +68,80 @@ export default async function PrintPage(props: any) {
           {order.locationUrl && (
             <>
               <hr />
-              <p><strong>Localização:</strong></p>
-              <QRCodeSVG value={order.locationUrl} size={120} />
-            </>
-          )}
-
-          {order.notes && (
-            <>
-              <hr />
-              <p><strong>Obs:</strong></p>
-              <p>{order.notes}</p>
+              <p className="section-title">Localização:</p>
+              <div className="qr">
+                <QRCodeSVG value={order.locationUrl} size={130} />
+              </div>
             </>
           )}
         </div>
 
-        <script dangerouslySetInnerHTML={{
-          __html: `window.onload = function() { window.print(); }`
-        }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.onload = function() { window.print(); }`,
+          }}
+        />
 
         <style>{`
           body {
-            font-family: monospace;
+            font-family: Arial, Helvetica, sans-serif;
             margin: 0;
             padding: 0;
             color: #000;
             background: #fff;
+            font-weight: 900;
           }
 
           .ticket {
             width: 280px;
-            padding: 10px;
-            font-size: 14px;
+            padding: 8px;
+            font-size: 15px;
+            font-weight: 900;
           }
 
-          h1, h2 {
-            text-align: center;
-            margin: 5px 0;
+          .customer {
+            font-size: 17px;
+            font-weight: 900;
           }
 
           pre {
             white-space: pre-wrap;
-            font-family: monospace;
-            font-size: 14px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 15px;
+            font-weight: 900;
+            line-height: 1.35;
+            margin: 0;
           }
 
           p {
             margin: 5px 0;
+            font-weight: 900;
+          }
+
+          .obs {
+            margin-top: 8px;
+            font-size: 15px;
+            font-weight: 900;
+          }
+
+          .total {
+            font-size: 17px;
+            font-weight: 900;
+          }
+
+          .section-title {
+            font-size: 15px;
+            font-weight: 900;
+          }
+
+          .qr {
+            margin-top: 6px;
+            text-align: center;
           }
 
           hr {
             border: none;
-            border-top: 1px dashed #000;
+            border-top: 2px dashed #000;
             margin: 8px 0;
           }
 
@@ -105,6 +149,11 @@ export default async function PrintPage(props: any) {
             @page {
               size: 80mm auto;
               margin: 0;
+            }
+
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
           }
         `}</style>

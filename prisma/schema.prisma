@@ -14,6 +14,7 @@ model Order {
   items       String
   total       Float
   payment     String
+  changeFor   Float?
   address     String?
   locationUrl String?
   notes       String?

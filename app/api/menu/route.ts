@@ -73,7 +73,7 @@ async function seedIfEmpty() {
           twoMeatPrice: 25,
         },
         {
-          name: "G com Duas Carnes",
+          name: "G com 2 Misturas",
           normalPrice: 25,
           specialPrice: 25,
           twoMeatPrice: 25,
@@ -81,6 +81,11 @@ async function seedIfEmpty() {
       ],
     });
   }
+
+  await prisma.marmitaSize.updateMany({
+    where: { name: "G com Duas Carnes" },
+    data: { name: "G com 2 Misturas" },
+  });
 }
 
 export async function GET() {
