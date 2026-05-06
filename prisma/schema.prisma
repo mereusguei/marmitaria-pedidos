@@ -19,6 +19,7 @@ model Order {
   locationUrl String?
   notes       String?
   status      String   @default("novo")
+  paid        Boolean  @default(false)
 
   customerId  Int?
   sizeName    String?

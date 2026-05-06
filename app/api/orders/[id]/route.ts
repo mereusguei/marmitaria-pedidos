@@ -17,10 +17,28 @@ export async function PATCH(
     );
   }
 
-  const order = await prisma.order.update({
-    where: { id },
-    data: { status: data.status },
-  });
+  const updateData: {
+  status?: string;
+  payment?: string;
+  paid?: boolean;
+} = {};
+
+if (typeof data.status === "string") {
+  updateData.status = data.status;
+}
+
+if (typeof data.payment === "string") {
+  updateData.payment = data.payment;
+}
+
+if (typeof data.paid === "boolean") {
+  updateData.paid = data.paid;
+}
+
+const order = await prisma.order.update({
+  where: { id },
+  data: updateData,
+});
 
   return NextResponse.json(order);
 }

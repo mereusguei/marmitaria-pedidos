@@ -10,6 +10,7 @@ type Order = {
   payment: string;
   changeFor?: number | null;
   status: string;
+  paid: boolean;
   createdAt: string;
 };
 
@@ -90,7 +91,9 @@ export default function Home() {
     phone: "",
     sizeName: "M",
     meat1: "",
+    meat1Custom: "",
     meat2: "",
+    meat2Custom: "",
     salad: "",
     total: "",
     payment: "PIX",
@@ -148,7 +151,10 @@ export default function Home() {
     (item) => item.category === "salada" && item.active,
   );
 
-  const selectedMeat = meats.find((item) => item.name === form.meat1);
+  const selectedMeat =
+    form.meat1 === "__custom__"
+      ? undefined
+      : meats.find((item) => item.name === form.meat1);
   const selectedSize = sizes.find((size) => size.name === form.sizeName);
 
   function isTwoMixSize(sizeName: string) {
@@ -424,7 +430,9 @@ export default function Home() {
       ...prev,
       sizeName: "M",
       meat1: "",
+      meat1Custom: "",
       meat2: "",
+      meat2Custom: "",
       salad: firstActiveSalad?.name || "",
       total: "",
       marmitaNotes: "",
@@ -434,8 +442,29 @@ export default function Home() {
     setCurrentMarmitaQuantity(1);
   }
 
+  function getMeat1Name() {
+    return form.meat1 === "__custom__" ? form.meat1Custom.trim() : form.meat1;
+  }
+
+  function getMeat2Name() {
+    return form.meat2 === "__custom__" ? form.meat2Custom.trim() : form.meat2;
+  }
+
+  function formatCuiabaDateTime(date: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Cuiaba",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(date));
+  }
+
   function addMarmitaToOrder() {
-    if (!form.meat1) {
+    const meat1Name = getMeat1Name();
+    const meat2Name = getMeat2Name();
+    if (!meat1Name) {
       alert("Selecione pelo menos uma carne.");
       return;
     }
@@ -443,8 +472,8 @@ export default function Home() {
     const newMarmita: OrderMarmita = {
       id: Date.now(),
       sizeName: form.sizeName,
-      meat1: form.meat1,
-      meat2: isTwoMixSize(form.sizeName) ? form.meat2 : "",
+      meat1: meat1Name,
+      meat2: isTwoMixSize(form.sizeName) ? meat2Name : "",
       sides: selectedSides,
       salad: form.salad,
       removedItems: getRemovedItems(selectedSides, form.salad),
@@ -535,7 +564,9 @@ export default function Home() {
       phone: "",
       sizeName: "M",
       meat1: "",
+      meat1Custom: "",
       meat2: "",
+      meat2Custom: "",
       salad: firstActiveSalad?.name || "",
       total: "",
       payment: "PIX",
@@ -562,6 +593,19 @@ export default function Home() {
     if (order?.id) {
       window.open(`/print/${order.id}`, "_blank");
     }
+  }
+
+  async function updateOrder(
+    id: number,
+    data: { payment?: string; paid?: boolean },
+  ) {
+    await fetch(`/api/orders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    await loadOrders(ordersPage);
   }
 
   return (
@@ -689,31 +733,59 @@ export default function Home() {
                   ))}
               </select>
 
-              <select
-                value={form.meat1}
-                onChange={(e) => setForm({ ...form, meat1: e.target.value })}
-              >
-                <option value="">Selecione a carne</option>
-                {meats.map((item) => (
-                  <option key={item.id} value={item.name}>
-                    {item.name}
-                    {item.specialPrice ? " - preço especial" : ""}
-                  </option>
-                ))}
-              </select>
-
-              {isTwoMixSize(form.sizeName) && (
+              <div className="grid gap-2">
                 <select
-                  value={form.meat2}
-                  onChange={(e) => setForm({ ...form, meat2: e.target.value })}
+                  value={form.meat1}
+                  onChange={(e) => setForm({ ...form, meat1: e.target.value })}
                 >
-                  <option value="">2ª mistura opcional</option>
+                  <option value="">Selecione a carne</option>
+                  <option value="__custom__">Mistura fora do cardápio</option>
                   {meats.map((item) => (
                     <option key={item.id} value={item.name}>
                       {item.name}
+                      {item.specialPrice ? " - preço especial" : ""}
                     </option>
                   ))}
                 </select>
+
+                {form.meat1 === "__custom__" && (
+                  <input
+                    placeholder="Digite a mistura fora do cardápio"
+                    value={form.meat1Custom}
+                    onChange={(e) =>
+                      setForm({ ...form, meat1Custom: e.target.value })
+                    }
+                  />
+                )}
+              </div>
+
+              {isTwoMixSize(form.sizeName) && (
+                <div className="grid gap-2">
+                  <select
+                    value={form.meat2}
+                    onChange={(e) =>
+                      setForm({ ...form, meat2: e.target.value })
+                    }
+                  >
+                    <option value="">2ª mistura opcional</option>
+                    <option value="__custom__">Mistura fora do cardápio</option>
+                    {meats.map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {form.meat2 === "__custom__" && (
+                    <input
+                      placeholder="Digite a 2ª mistura fora do cardápio"
+                      value={form.meat2Custom}
+                      onChange={(e) =>
+                        setForm({ ...form, meat2Custom: e.target.value })
+                      }
+                    />
+                  )}
+                </div>
               )}
             </div>
 
@@ -964,18 +1036,56 @@ export default function Home() {
                 <strong>
                   #{order.id} - {order.customer}
                 </strong>
+
+                <p className="text-xs text-slate-500">
+                  {formatCuiabaDateTime(order.createdAt)} - Horário de Cuiabá
+                </p>
+
                 <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
                   {order.items}
                 </p>
                 <p className="mt-2 font-bold">
                   R$ {Number(order.total).toFixed(2)} - {order.payment}
                 </p>
-                <button
-                  className="mt-2 bg-slate-800 px-4 py-2 text-sm font-bold text-white"
-                  onClick={() => window.open(`/print/${order.id}`, "_blank")}
+
+                <p
+                  className={`mt-1 text-sm font-bold ${
+                    order.paid ? "text-green-400" : "text-yellow-400"
+                  }`}
                 >
-                  Imprimir
-                </button>
+                  {order.paid ? "PAGO" : "PENDENTE"}
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <select
+                    value={order.payment}
+                    onChange={(e) =>
+                      updateOrder(order.id, { payment: e.target.value })
+                    }
+                  >
+                    <option>PIX</option>
+                    <option>Dinheiro</option>
+                    <option>Cartão</option>
+                    <option>Fiado</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    className={`px-4 py-2 text-sm font-bold text-white ${
+                      order.paid ? "bg-yellow-700" : "bg-green-700"
+                    }`}
+                    onClick={() => updateOrder(order.id, { paid: !order.paid })}
+                  >
+                    {order.paid ? "Marcar Pendente" : "Marcar Pago"}
+                  </button>
+
+                  <button
+                    className="bg-slate-800 px-4 py-2 text-sm font-bold text-white"
+                    onClick={() => window.open(`/print/${order.id}`, "_blank")}
+                  >
+                    Imprimir
+                  </button>
+                </div>
               </div>
             ))}
           </div>
